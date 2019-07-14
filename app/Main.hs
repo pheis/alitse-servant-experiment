@@ -1,6 +1,4 @@
-module Main where
-
-import Lib
+import qualified Api
 
 main :: IO ()
-main = someFunc
+main = putStrLn "moi"
