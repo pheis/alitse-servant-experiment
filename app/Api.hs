@@ -70,37 +70,13 @@ app = serve helloApi server
 connectToRedis :: IO Redis.Connection
 connectToRedis = Redis.checkedConnect Redis.defaultConnectInfo
 
--- bsToUser :: Aeson.FromJSON a => BS.ByteString -> Maybe a
--- bsToUser bs = Aeson.decodeStrict bs
---
--- foofuu :: (Monad m, Aeson.FromJSON a, Functor f) =>
---             m (f BS.ByteString) -> m (f (Maybe a))
--- -- foofuu vals = fmap Aeson.decodeStrict <$> vals
---
-getUsers2 :: Redis.Redis (Either Redis.Reply [Maybe User])
-getUsers2 =
-    fmap (fmap (fmap (fmap Aeson.decodeStrict))) Redis.hvals userStoreName
-
--- toUsers :: Either Redis.Reply [BS.ByteString] -> [Maybe User]
--- toUsers (Right bsList) = fmap Aeson.decodeStrict bsList
--- toUsers _ = []
---
 toUsers :: Either Redis.Reply [BS.ByteString] -> [User]
 toUsers (Right bsList) = Maybe.mapMaybe Aeson.decodeStrict bsList
 toUsers _              = []
 
-getUsers3 :: Redis.Redis [User]
-getUsers3 = toUsers <$> Redis.hvals userStoreName
+getUsers :: Redis.Connection -> IO [User]
+getUsers conn = Redis.runRedis conn $ toUsers <$> Redis.hvals userStoreName
 
-getUsers :: Redis.Connection -> IO (Either Redis.Reply [BS.ByteString])
-getUsers conn = Redis.runRedis conn $ Redis.hvals userStoreName
-
-
-
--- foofuu :: IO (Either Redis.Reply [BS.ByteString]) -> IO (Either Redis.Reply [Char])
-
-
--- userToText :: User -> T.Text
 maikkeli :: User
 maikkeli = User "asdf" "Maikkeli" Mentor
 
