@@ -6,6 +6,7 @@
 
 module Api where
 
+import           Control.Monad.IO.Class
 import           Control.Applicative            ( (<$>) )
 import qualified Data.Maybe                    as Maybe
 import qualified Data.ByteString               as BS
@@ -51,8 +52,8 @@ type UsersAPI = "users" :> Get '[JSON] [User]
 
 type HelloAPI = UsersAPI
 
-helloApi :: Proxy.Proxy HelloAPI
-helloApi = Proxy.Proxy
+api :: Proxy.Proxy HelloAPI
+api = Proxy.Proxy
 
 users :: [User]
 users = [User "123-1234" "Janteri" Mentor, User "1234-1324" "Janteri" Mentee]
@@ -61,21 +62,21 @@ users = [User "123-1234" "Janteri" Mentor, User "1234-1324" "Janteri" Mentee]
 userStoreName :: BS.ByteString
 userStoreName = "users"
 
-server :: Server UsersAPI
-server = return users
+server :: Redis.Connection -> Server UsersAPI
+server conn = liftIO (readUsers conn)
 
-app :: Application
-app = serve helloApi server
+app :: Redis.Connection -> Application
+app conn = serve api $ server conn
 
 connectToRedis :: IO Redis.Connection
 connectToRedis = Redis.checkedConnect Redis.defaultConnectInfo
 
 toUsers :: Either Redis.Reply [BS.ByteString] -> [User]
-toUsers (Right bsList) = Maybe.mapMaybe Aeson.decodeStrict bsList
-toUsers _              = []
+toUsers (Right byteStrings) = Maybe.mapMaybe Aeson.decodeStrict byteStrings
+toUsers _                   = []
 
-getUsers :: Redis.Connection -> IO [User]
-getUsers conn = Redis.runRedis conn $ toUsers <$> Redis.hvals userStoreName
+readUsers :: Redis.Connection -> IO [User]
+readUsers conn = Redis.runRedis conn $ toUsers <$> Redis.hvals userStoreName
 
 maikkeli :: User
 maikkeli = User "asdf" "Maikkeli" Mentor
