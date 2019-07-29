@@ -20,13 +20,13 @@ generateId = let len = 32 in do
     bytes <- Random.getRandomBytes len :: IO B.ByteString
     return $ TE.decodeUtf8 $ B.take len $ Base64URL.encode bytes
 
-listFromRedisReply :: Aeson.FromJSON a => Either Redis.Reply [B.ByteString] -> [a]
-listFromRedisReply (Right xs) = Maybe.mapMaybe Aeson.decodeStrict xs
-listFromRedisReply _          = error "something went wrong"
+toResources :: Aeson.FromJSON a => Either Redis.Reply [B.ByteString] -> [a]
+toResources (Right xs) = Maybe.mapMaybe Aeson.decodeStrict xs
+toResources _          = error "something went wrong"
 
-fromRedisReply :: Aeson.FromJSON a => Either Redis.Reply (Maybe B.ByteString) -> Maybe a
-fromRedisReply (Right (Just x)) = Aeson.decodeStrict x
-fromRedisReply _              = error "something went wrong"
+toResource :: Aeson.FromJSON a => Either Redis.Reply (Maybe B.ByteString) -> Maybe a
+toResource (Right (Just x)) = Aeson.decodeStrict x
+toResource _              = error "something went wrong"
 
 -- fromJson x = fmap (fmap Aeson.decodeStrict) x
 
@@ -46,9 +46,9 @@ create storeName toStorableValue conn newValue = do
     hset conn (TE.encodeUtf8 storeName) newId $ toStorableValue newValue newId
 
 readAll :: Aeson.FromJSON a => T.Text -> Redis.Connection -> IO [a]
-readAll storeName conn = Redis.runRedis conn $ listFromRedisReply <$> Redis.hvals (TE.encodeUtf8 storeName)
+readAll storeName conn = Redis.runRedis conn $ toResources <$> Redis.hvals (TE.encodeUtf8 storeName)
 
 readOne :: Aeson.FromJSON a => T.Text -> Redis.Connection -> T.Text -> IO (Maybe a)
-readOne storeNameText conn keyText = Redis.runRedis conn $ fromRedisReply <$> Redis.hget storeName key
+readOne storeNameText conn keyText = Redis.runRedis conn $ toResource <$> Redis.hget storeName key
     where key = TE.encodeUtf8 keyText
           storeName = TE.encodeUtf8 storeNameText
