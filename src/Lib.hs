@@ -13,6 +13,8 @@ import qualified Data.Text.Encoding            as TE
 
 import qualified Database.Redis                as Redis
 
+newtype Resources a = Resources { resources :: a }
+
 generateId :: IO T.Text
 generateId = let len = 32 in do
     bytes <- Random.getRandomBytes len :: IO B.ByteString
