@@ -25,25 +25,68 @@ import           Servant.API
 import qualified Lib
 
 
+api :: Proxy.Proxy Api
+api = Proxy.Proxy
 
--- app :: Redis.Connection -> Application
--- app conn = serve api $ server conn
+type Api = "accounts" :> ReqBody '[JSON] NewAccount :> Post '[JSON] Account
+    :<|>"accounts" :> Get '[JSON] Accounts
+server :: Redis.Connection -> Server Api
+server conn = postAccount conn :<|> getAccounts conn
+--
+app :: Redis.Connection -> Application
+app conn = serve api $ server conn
+
+
+accountStoreName :: T.Text
+accountStoreName = "Accounts"
+
+readAccount :: Redis.Connection -> T.Text -> IO (Maybe Account)
+readAccount = Lib.readOne accountStoreName
+
+readAccounts :: Redis.Connection -> IO [Account]
+readAccounts = Lib.readAll accountStoreName
+
+createAccount :: Redis.Connection -> NewAccount -> IO Account
+createAccount = Lib.create accountStoreName toStorable
+
+postAccount :: Redis.Connection -> NewAccount -> Handler Account
+postAccount conn newAccount = do
+    storedAccount <- liftIO (createAccount conn newAccount)
+    return storedAccount
+
+getAccounts :: Redis.Connection -> Handler Accounts
+getAccounts conn = do
+    accounts <- liftIO (readAccounts conn)
+    return $ Accounts accounts
+
+getAccount :: Redis.Connection -> T.Text -> Handler (Maybe Account)
+getAccount conn accountId = do
+    account <- liftIO (readAccount conn accountId)
+    return account
+
 
 -- DATATYPES
-
+--
 data Role =  Mentee | Mentor | Admin deriving (Eq, Show, Read, Generic)
 instance Aeson.FromJSON Role
 instance Aeson.ToJSON Role
 
-data StorableAccount = StorableAccount
+data Account = Account
     { id :: T.Text
     , login_name :: T.Text
     , role  :: Role
     , email :: T.Text
     , phone :: T.Text
     } deriving (Eq, Show, Read, Generic)
-instance Aeson.FromJSON StorableAccount
-instance Aeson.ToJSON StorableAccount
+instance Aeson.FromJSON Account
+instance Aeson.ToJSON Account
+
+newtype Accounts = Accounts {
+    resources :: [Account]
+} deriving (Eq, Show, Read, Generic)
+instance Aeson.FromJSON Accounts
+instance Aeson.ToJSON Accounts
+
 
 data NewAccount = NewAccount
     { login_name :: T.Text
@@ -54,53 +97,11 @@ data NewAccount = NewAccount
 instance Aeson.FromJSON NewAccount
 instance Aeson.ToJSON NewAccount
 
-toStorable :: NewAccount -> T.Text -> StorableAccount
-toStorable NewAccount { login_name, role, email, phone } newId = StorableAccount {
+toStorable :: NewAccount -> T.Text -> Account
+toStorable NewAccount { login_name, role, email, phone } newId = Account {
     id = newId,
     login_name = login_name,
     role = Mentee,
     phone = "asdf",
     email = "lol"
 }
-
-accountStoreName :: T.Text
-accountStoreName = "Accounts"
-
-readAccount :: Redis.Connection -> T.Text -> IO (Maybe StorableAccount)
-readAccount = Lib.readOne accountStoreName
-readAccounts = Lib.readAll accountStoreName
-createAccount = Lib.create accountStoreName toStorable
-
-postAccount :: Redis.Connection -> NewAccount -> Handler StorableAccount
-postAccount conn newAccount = do
-    storedAccount <- liftIO (createAccount conn newAccount)
-    return storedAccount
-
-getAccounts :: Redis.Connection -> Handler [StorableAccount]
-getAccounts conn = do
-    accounts <- liftIO (readAccounts conn)
-    return accounts
-
-getAccount :: Redis.Connection -> T.Text -> Handler (Maybe StorableAccount)
-getAccount conn accountId = do
-    account <- liftIO (readAccount conn accountId)
-    return account
-
----
--- API DEFINITION
---
---      :<|> "accounts" :> Capture "id" :> Get '[JSON] [StorableAccount]
-
--- server :: Redis.Connection -> Server Api
--- server conn = liftIO (createAccount conn)
-
-api :: Proxy.Proxy Api
-api = Proxy.Proxy
-
-type Api = "accounts" :> ReqBody '[JSON] NewAccount :> Post '[JSON] StorableAccount
-    :<|>"accounts" :> Get '[JSON] [StorableAccount]
-server :: Redis.Connection -> Server Api
-server conn = (postAccount conn) :<|> (getAccounts conn)
---
-app :: Redis.Connection -> Application
-app conn = serve api $ server conn
