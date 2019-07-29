@@ -6,6 +6,9 @@
 
 module Api where
 
+import Prelude hiding (id)
+import qualified Data.ByteString.Base64.URL as Base64URL
+import qualified Crypto.Random as Random
 import           Control.Monad.IO.Class
 import           Control.Applicative            ( (<$>) )
 import qualified Data.Maybe                    as Maybe
@@ -40,7 +43,8 @@ data Account = Account
     } deriving (Eq, Show, Read, Generic)
 
 data User = User
-    { account_id :: T.Text
+    {  id :: T.Text
+    ,account_id :: T.Text
     , display_name :: T.Text
     , role :: Role
     } deriving (Eq, Show, Read, Generic)
@@ -56,7 +60,7 @@ api :: Proxy.Proxy HelloAPI
 api = Proxy.Proxy
 
 users :: [User]
-users = [User "123-1234" "Janteri" Mentor, User "1234-1324" "Janteri" Mentee]
+users = [User "asdf" "123-1234" "Janteri" Mentor, User "qwer" "1234-1324" "Janteri" Mentee]
 
 
 userStoreName :: BS.ByteString
@@ -79,7 +83,7 @@ readUsers :: Redis.Connection -> IO [User]
 readUsers conn = Redis.runRedis conn $ toUsers <$> Redis.hvals userStoreName
 
 maikkeli :: User
-maikkeli = User "asdf" "Maikkeli" Mentor
+maikkeli = User {id = "asdf", account_id = "qwer", display_name = "Maikkeli", role = Mentor}
 
 userToBs :: User -> BS.ByteString
 userToBs user = BL.toStrict $ Aeson.encode user
@@ -91,3 +95,8 @@ setUser conn user =
 
 setMaikkeli :: Redis.Connection -> IO (Either Redis.Reply Bool)
 setMaikkeli conn = setUser conn maikkeli
+
+generateAlitseId :: IO BS.ByteString
+generateAlitseId = let len = 32 in do
+    bytes <- Random.getRandomBytes len :: IO BS.ByteString
+    return $ BS.take len $ Base64URL.encode(bytes)

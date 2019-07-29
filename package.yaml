@@ -29,6 +29,9 @@ dependencies:
 - warp
 - hedis
 - bytestring
+- cryptonite
+- memory
+- base64-bytestring
 
 library:
   source-dirs: src

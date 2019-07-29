@@ -1,6 +1,9 @@
 import qualified Network.Wai.Handler.Warp      as Warp
 import qualified Api
 
+
+
+
 main :: IO ()
 main = do
     conn  <- Api.connectToRedis
@@ -8,3 +11,8 @@ main = do
     users <- Api.readUsers conn
     print users
     Warp.run 8081 $ Api.app conn
+
+-- main :: IO ()
+-- main = do
+--     bytes <- Api.generateAlitseId
+--     print bytes
