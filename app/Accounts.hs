@@ -10,13 +10,11 @@ module Accounts where
 
 import Prelude hiding (id)
 
-import           Control.Monad.IO.Class (liftIO)
+import           Control.Monad.IO.Class
 
 import qualified Data.Aeson                    as Aeson
-import qualified Data.ByteString               as B
 import qualified Data.Proxy                    as Proxy
 import qualified Data.Text                     as T
-import qualified Data.Text.Encoding            as TE
 
 import qualified Database.Redis                as Redis
 
@@ -65,23 +63,28 @@ toStorable NewAccount { login_name, role, email, phone } newId = StorableAccount
     email = "lol"
 }
 
-type Api = "accounts" :> ReqBody '[JSON] NewAccount :> Post '[JSON] StorableAccount
-    :<|>"accounts" :> Get '[JSON] [StorableAccount]
-
-
-
-accountStoreName :: B.ByteString
+accountStoreName :: T.Text
 accountStoreName = "Accounts"
+
+readAccount :: Redis.Connection -> T.Text -> IO (Maybe StorableAccount)
+readAccount = Lib.readOne accountStoreName
+readAccounts = Lib.readAll accountStoreName
+createAccount = Lib.create accountStoreName toStorable
 
 postAccount :: Redis.Connection -> NewAccount -> Handler StorableAccount
 postAccount conn newAccount = do
-    storedAccount <- liftIO (Lib.create accountStoreName (toStorable) conn newAccount)
+    storedAccount <- liftIO (createAccount conn newAccount)
     return storedAccount
 
 getAccounts :: Redis.Connection -> Handler [StorableAccount]
 getAccounts conn = do
-    accounts <- liftIO (Lib.readAll accountStoreName conn)
+    accounts <- liftIO (readAccounts conn)
     return accounts
+
+getAccount :: Redis.Connection -> T.Text -> Handler (Maybe StorableAccount)
+getAccount conn accountId = do
+    account <- liftIO (readAccount conn accountId)
+    return account
 
 ---
 -- API DEFINITION
@@ -93,8 +96,9 @@ getAccounts conn = do
 
 api :: Proxy.Proxy Api
 api = Proxy.Proxy
---
---
+
+type Api = "accounts" :> ReqBody '[JSON] NewAccount :> Post '[JSON] StorableAccount
+    :<|>"accounts" :> Get '[JSON] [StorableAccount]
 server :: Redis.Connection -> Server Api
 server conn = (postAccount conn) :<|> (getAccounts conn)
 --
