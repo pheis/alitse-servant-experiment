@@ -1,4 +1,4 @@
-module Lib where
+module Db where
 
 import qualified Crypto.Random                 as Random
 
@@ -6,12 +6,15 @@ import qualified Data.Aeson                    as Aeson
 import qualified Data.ByteString               as B
 import qualified Data.ByteString.Lazy          as BL
 import qualified Data.ByteString.Base64.URL    as Base64URL
-import qualified Data.Either                   as Either
+-- import qualified Data.Either                   as Either
 import qualified Data.Maybe                    as Maybe
 import qualified Data.Text                     as T
 import qualified Data.Text.Encoding            as TE
 
 import qualified Database.Redis                as Redis
+
+
+-- TODO use Monad fail for error handling
 
 newtype Resources a = Resources { resources :: a }
 

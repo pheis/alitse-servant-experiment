@@ -22,7 +22,8 @@ import           GHC.Generics                   ( Generic )
 
 import           Servant ( Application, Handler, Server, serve)
 import           Servant.API
-import qualified Lib
+
+import qualified Db
 
 
 api :: Proxy.Proxy Api
@@ -37,18 +38,8 @@ app :: Redis.Connection -> Application
 app conn = serve api $ server conn
 
 
-accountStoreName :: T.Text
-accountStoreName = "Accounts"
-
-readAccount :: Redis.Connection -> T.Text -> IO (Maybe Account)
-readAccount = Lib.readOne accountStoreName
-
-readAccounts :: Redis.Connection -> IO [Account]
-readAccounts = Lib.readAll accountStoreName
-
-createAccount :: Redis.Connection -> NewAccount -> IO Account
-createAccount = Lib.create accountStoreName toStorable
-
+-- Handlers
+--
 postAccount :: Redis.Connection -> NewAccount -> Handler Account
 postAccount conn newAccount = do
     storedAccount <- liftIO (createAccount conn newAccount)
@@ -63,6 +54,21 @@ getAccount :: Redis.Connection -> T.Text -> Handler (Maybe Account)
 getAccount conn accountId = do
     account <- liftIO (readAccount conn accountId)
     return account
+
+
+-- DB
+--
+storeName :: T.Text
+storeName = "Accounts"
+
+readAccount :: Redis.Connection -> T.Text -> IO (Maybe Account)
+readAccount = Db.readOne storeName
+
+readAccounts :: Redis.Connection -> IO [Account]
+readAccounts = Db.readAll storeName
+
+createAccount :: Redis.Connection -> NewAccount -> IO Account
+createAccount = Db.create storeName toStorable
 
 
 -- DATATYPES
