@@ -27,15 +27,12 @@ generateId =
 
 toResources :: Aeson.FromJSON a => Either Redis.Reply [B.ByteString] -> [a]
 toResources (Right xs) = Maybe.mapMaybe Aeson.decodeStrict xs
-toResources _          = error "something went wrong"
+toResources _          = []
 
 toResource
     :: Aeson.FromJSON a => Either Redis.Reply (Maybe B.ByteString) -> Maybe a
 toResource (Right (Just x)) = Aeson.decodeStrict x
-toResource _                = error "something went wrong"
-
--- fromJson x = fmap (fmap Aeson.decodeStrict) x
-
+toResource _                = Nothing
 
 toJson :: Aeson.ToJSON a => a -> B.ByteString
 toJson = BL.toStrict . Aeson.encode

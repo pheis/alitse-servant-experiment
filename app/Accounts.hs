@@ -20,7 +20,7 @@ import qualified Database.Redis                as Redis
 
 import           GHC.Generics                   ( Generic )
 
-import           Servant ( Application, Handler, Server, serve)
+import           Servant ( Application, Handler, Server, serve, err404, throwError, errBody)
 import           Servant.API
 
 import qualified Db
@@ -30,9 +30,10 @@ api :: Proxy.Proxy Api
 api = Proxy.Proxy
 
 type Api = "accounts" :> ReqBody '[JSON] NewAccount :> Post '[JSON] Account
-    :<|>"accounts" :> Get '[JSON] Accounts
+    :<|> "accounts" :> Get '[JSON] Accounts
+    :<|> "accounts" :> Capture "id" T.Text :> Get '[JSON] Account
 server :: Redis.Connection -> Server Api
-server conn = postAccount conn :<|> getAccounts conn
+server conn = postAccount conn :<|> getAccounts conn :<|> getAccount conn
 --
 app :: Redis.Connection -> Application
 app conn = serve api $ server conn
@@ -50,10 +51,12 @@ getAccounts conn = do
     accounts <- liftIO (readAccounts conn)
     return $ Accounts accounts
 
-getAccount :: Redis.Connection -> T.Text -> Handler (Maybe Account)
+getAccount :: Redis.Connection -> T.Text -> Handler Account
 getAccount conn accountId = do
-    account <- liftIO (readAccount conn accountId)
-    return account
+    maybeAccount <- liftIO (readAccount conn accountId)
+    case maybeAccount of
+        Just account -> return account
+        Nothing -> throwError $ err404 { errBody = "(╯°□°）╯︵ ┻━┻)." }
 
 
 -- DB

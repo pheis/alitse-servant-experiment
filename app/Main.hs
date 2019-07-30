@@ -1,5 +1,6 @@
 import qualified Network.Wai.Handler.Warp      as Warp
 import qualified Api
+import qualified Accounts
 
 
 
@@ -10,7 +11,7 @@ main = do
     _ <- Api.setMaikkeli conn
     users <- Api.readUsers conn
     print users
-    Warp.run 8081 $ Api.app conn
+    Warp.run 8081 $ Accounts.app conn
 
 -- main :: IO ()
 -- main = do
