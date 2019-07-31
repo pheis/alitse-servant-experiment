@@ -20,16 +20,17 @@ import qualified Database.Redis                as Redis
 
 import           GHC.Generics                   ( Generic )
 
-import           Servant ( Application, Handler, Server, serve, err404, throwError, errBody)
+import           Servant
 import           Servant.API
 
 import qualified Db
+import qualified Identity
 
 
 api :: Proxy.Proxy Api
 api = Proxy.Proxy
 
-type Api = "accounts" :> ReqBody '[JSON] NewAccount :> Post '[JSON] Account
+type Api = "accounts" :> ReqBody '[JSON] NewAccountWithPassword :> Post '[JSON] Account
     :<|> "accounts" :> Get '[JSON] Accounts
     :<|> "accounts" :> Capture "id" T.Text :> Get '[JSON] Account
 server :: Redis.Connection -> Server Api
@@ -41,10 +42,12 @@ app conn = serve api $ server conn
 
 -- Handlers
 --
-postAccount :: Redis.Connection -> NewAccount -> Handler Account
+postAccount :: Redis.Connection -> NewAccountWithPassword -> Handler Account
 postAccount conn newAccount = do
-    storedAccount <- liftIO (createAccount conn newAccount)
-    return storedAccount
+    maybeStoredAccount <- liftIO (createAccount conn newAccount)
+    case maybeStoredAccount of
+        Just account -> return account
+        Nothing -> throwError $ err500 { errBody = "We broken, dunno why" }
 
 getAccounts :: Redis.Connection -> Handler Accounts
 getAccounts conn = do
@@ -70,20 +73,16 @@ readAccount = Db.readOne storeName
 readAccounts :: Redis.Connection -> IO [Account]
 readAccounts = Db.readAll storeName
 
-createAccount :: Redis.Connection -> NewAccount -> IO Account
+createAccount :: Redis.Connection -> NewAccountWithPassword -> IO (Maybe Account)
 createAccount = Db.create storeName toStorable
 
-
+--
 -- DATATYPES
 --
-data Role =  Mentee | Mentor | Admin deriving (Eq, Show, Read, Generic)
-instance Aeson.FromJSON Role
-instance Aeson.ToJSON Role
-
 data Account = Account
     { id :: T.Text
     , login_name :: T.Text
-    , role  :: Role
+    , role  :: Identity.Role
     , email :: T.Text
     , phone :: T.Text
     } deriving (Eq, Show, Read, Generic)
@@ -96,21 +95,35 @@ newtype Accounts = Accounts {
 instance Aeson.FromJSON Accounts
 instance Aeson.ToJSON Accounts
 
-
 data NewAccount = NewAccount
     { login_name :: T.Text
-    , role  :: Role
+    , role  :: Identity.Role
     , email :: Maybe T.Text
     , phone :: Maybe T.Text
     } deriving (Eq, Show, Read, Generic)
 instance Aeson.FromJSON NewAccount
 instance Aeson.ToJSON NewAccount
 
-toStorable :: NewAccount -> T.Text -> Account
-toStorable NewAccount { login_name, role, email, phone } newId = Account {
+data NewAccountWithPassword = NewAccountWithPassword
+    { password :: T.Text
+    , account :: NewAccount
+    } deriving (Eq, Show, Read, Generic)
+instance Aeson.FromJSON NewAccountWithPassword
+instance Aeson.ToJSON NewAccountWithPassword
+
+
+-- Data conversions
+--
+_account :: NewAccountWithPassword -> NewAccount
+_account NewAccountWithPassword { account} = account
+
+newAccountToStorable :: NewAccount -> T.Text -> Account
+newAccountToStorable NewAccount { login_name, role, email, phone } newId = Account {
     id = newId,
     login_name = login_name,
-    role = Mentee,
+    role = Identity.Mentee,
     phone = "asdf",
     email = "lol"
 }
+
+toStorable account newId = newAccountToStorable (_account account) newId

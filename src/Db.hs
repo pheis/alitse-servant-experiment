@@ -37,13 +37,13 @@ toResource _                = Nothing
 toJson :: Aeson.ToJSON a => a -> B.ByteString
 toJson = BL.toStrict . Aeson.encode
 
-
-hset
-    :: Aeson.ToJSON a => Redis.Connection -> B.ByteString -> T.Text -> a -> IO a
-hset conn storeName key value = do
-    _ <- Redis.runRedis conn $ Redis.hset storeName (TE.encodeUtf8 key) $ toJson
-        value
-    return value
+set :: Aeson.ToJSON a => Redis.Connection -> B.ByteString -> T.Text -> a -> IO (Maybe a)
+set conn storeName key value = do
+    response <- Redis.runRedis conn $ Redis.hset storeName (TE.encodeUtf8 key) $ toJson value
+    return $ foo response where
+        foo (Left _) = Nothing
+        foo (Right False) = Nothing
+        foo (Right True) = Just value
 
 create
     :: Aeson.ToJSON b
@@ -51,10 +51,10 @@ create
     -> (a -> T.Text -> b)
     -> Redis.Connection
     -> a
-    -> IO b
+    -> IO (Maybe b)
 create storeName toStorableValue conn newValue = do
     newId <- generateId
-    hset conn (TE.encodeUtf8 storeName) newId $ toStorableValue newValue newId
+    set conn (TE.encodeUtf8 storeName) newId $ toStorableValue newValue newId
 
 readAll :: Aeson.FromJSON a => T.Text -> Redis.Connection -> IO [a]
 readAll storeName conn =
